@@ -1,4 +1,4 @@
-import { Routes, Route, Outlet } from 'react-router-dom'
+import { Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import BackButton from './components/BackButton'
 import Home from './pages/Home'
@@ -10,11 +10,14 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 
 function AppLayout(){
+  const location = useLocation()
+  const isHome = location.pathname === '/'
+
   return (
     <div className="min-h-screen bg-slate-100">
       <Navbar />
       <main className="container mx-auto px-4 py-8 space-y-6">
-        <BackButton />
+        {!isHome && <BackButton />}
         <div>
           <Outlet />
         </div>
