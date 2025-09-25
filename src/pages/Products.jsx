@@ -6,8 +6,21 @@ export default function Products(){
   const [products, setProducts] = useState([])
 
   useEffect(() => {
-    api.get('/products')
-      .then(res => setProducts(res.data))
+    api
+      .get('/products')
+      .then(res => {
+        const payload = res?.data
+        if (Array.isArray(payload)) {
+          setProducts(payload)
+        } else if (payload && Array.isArray(payload.data)) {
+          setProducts(payload.data)
+        } else if (payload && Array.isArray(payload.items)) {
+          setProducts(payload.items)
+        } else {
+          console.error('Formato inesperado de productos', payload)
+          setProducts([])
+        }
+      })
       .catch(err => console.error(err))
   }, [])
 

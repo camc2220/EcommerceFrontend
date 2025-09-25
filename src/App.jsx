@@ -19,8 +19,21 @@ function Products() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(import.meta.env.VITE_API_URL + "/api/Product")
-      .then(res => setProducts(res.data))
+    axios
+      .get(import.meta.env.VITE_API_URL + "/api/Product")
+      .then(res => {
+        const payload = res?.data;
+        if (Array.isArray(payload)) {
+          setProducts(payload);
+        } else if (payload && Array.isArray(payload.data)) {
+          setProducts(payload.data);
+        } else if (payload && Array.isArray(payload.items)) {
+          setProducts(payload.items);
+        } else {
+          console.error("Formato inesperado de productos", payload);
+          setProducts([]);
+        }
+      })
       .catch(err => console.error("Error cargando productos", err))
       .finally(() => setLoading(false));
   }, []);
