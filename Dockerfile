@@ -1,33 +1,29 @@
-# ----------------------
-# 1. Build Stage
-# ----------------------
-FROM node:20-alpine AS build
+# Imagen base con Node
+FROM node:18-alpine AS build
 
+# Establecer directorio de trabajo
 WORKDIR /app
 
-# Copiamos package.json y package-lock.json primero para aprovechar cache
+# Copiar dependencias
 COPY package*.json ./
-
-# Instalamos dependencias
 RUN npm install
 
-# Copiamos el resto del código
+# Copiar código fuente
 COPY . .
 
-# Construimos la aplicación (Vite → carpeta dist/)
+# Construir la aplicación
 RUN npm run build
 
-# ----------------------
-# 2. Serve Stage
-# ----------------------
-FROM nginx:stable-alpine
+# Etapa de producción con Nginx
+FROM nginx:alpine
 
-# Copiamos la build de Vite al directorio que Nginx sirve por defecto
+# Copiar el build al servidor de Nginx
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copiamos configuración personalizada de Nginx (para React Router)
+# Copiar configuración de Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Exponer puerto
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
