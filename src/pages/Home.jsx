@@ -2,9 +2,23 @@ import { Link } from 'react-router-dom'
 export default function Home(){
   return (
     <div>
-      <header className="bg-white rounded p-6 shadow mb-6">
+      <header className="mb-6 rounded bg-white p-6 shadow">
         <h1 className="text-3xl font-bold">Welcome to the store</h1>
         <p className="mt-2 text-gray-600">Shop the best deals</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            to="/login"
+            className="rounded bg-blue-600 px-5 py-2 text-white shadow hover:bg-blue-700"
+          >
+            Iniciar sesión
+          </Link>
+          <Link
+            to="/register"
+            className="rounded border border-blue-600 px-5 py-2 text-blue-600 hover:bg-blue-50"
+          >
+            Crear cuenta
+          </Link>
+        </div>
       </header>
 
       <section>
