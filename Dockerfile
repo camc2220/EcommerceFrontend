@@ -1,27 +1,32 @@
-# Etapa 1: Construcción con Node
-FROM node:18-alpine AS build
+# Etapa de build
+FROM node:18 AS build
 
 WORKDIR /app
 
-# Copiar dependencias
+# Copiar dependencias primero para aprovechar caché
 COPY package*.json ./
 RUN npm install
 
-# Copiar el código fuente
+# Copiar todo el código fuente
 COPY . .
 
-# Construir la app
+# Build de la aplicación
 RUN npm run build
 
-# Etapa 2: Servir con Nginx
-FROM nginx:alpine
+# Etapa de producción
+FROM node:18-alpine
 
-# Copiar la build a la carpeta pública de Nginx
-COPY --from=build /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-# Configuración de Nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copiar la app ya compilada
+COPY --from=build /app/dist ./dist
 
-EXPOSE 80
+# Instalar un servidor estático ligero
+RUN npm install -g serve
 
-CMD ["nginx", "-g", "daemon off;"]
+# Railway usará este puerto
+EXPOSE 3000
+
+# Comando de arranque
+CMD ["serve", "-s", "dist", "-l", "3000"]
+
