@@ -1,5 +1,6 @@
 import { Routes, Route, Outlet } from 'react-router-dom'
 import Navbar from './components/Navbar'
+import BackButton from './components/BackButton'
 import Home from './pages/Home'
 import Products from './pages/Products'
 import ProductDetail from './pages/ProductDetail'
@@ -12,8 +13,11 @@ function AppLayout(){
   return (
     <div className="min-h-screen bg-slate-100">
       <Navbar />
-      <main className="container mx-auto px-4 py-8">
-        <Outlet />
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        <BackButton />
+        <div>
+          <Outlet />
+        </div>
       </main>
     </div>
   )
@@ -28,9 +32,9 @@ export default function App(){
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
       </Route>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
     </Routes>
   )
 }
