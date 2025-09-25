@@ -7,8 +7,21 @@ export default function Cart(){
   const navigate = useNavigate()
 
   useEffect(() => {
-    api.get('/cart')
-      .then(res => setItems(res.data))
+    api
+      .get('/cart')
+      .then(res => {
+        const payload = res?.data
+        if (Array.isArray(payload)) {
+          setItems(payload)
+        } else if (payload && Array.isArray(payload.data)) {
+          setItems(payload.data)
+        } else if (payload && Array.isArray(payload.items)) {
+          setItems(payload.items)
+        } else {
+          console.error('Formato inesperado del carrito', payload)
+          setItems([])
+        }
+      })
       .catch(err => {
         console.error(err)
         if (err.response && err.response.status === 401) navigate('/login')
