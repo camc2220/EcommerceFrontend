@@ -45,18 +45,29 @@ export default function Products(){
       )}
       {!loading && !error && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map(p => (
-            <div key={p.id} className="rounded bg-white p-4 shadow">
-              <h3 className="font-bold">{p.name}</h3>
-              <p className="text-sm text-gray-600">{p.description}</p>
-              <div className="mt-2 flex items-center justify-between">
-                <div className="text-lg font-semibold">${p.price}</div>
-                <Link to={`/products/${p.id}`} className="text-sm text-blue-600">
-                  View
-                </Link>
+          {products.map(p => {
+            const imageUrl = p.imageUrl ?? p.image_url
+
+            return (
+              <div key={p.id} className="space-y-2 overflow-hidden rounded bg-white p-4 shadow">
+                {imageUrl && (
+                  <img
+                    src={imageUrl}
+                    alt={p.name}
+                    className="h-40 w-full rounded object-cover"
+                  />
+                )}
+                <h3 className="font-bold">{p.name}</h3>
+                <p className="text-sm text-gray-600">{p.description}</p>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="text-lg font-semibold">${p.price}</div>
+                  <Link to={`/products/${p.id}`} className="text-sm text-blue-600">
+                    View
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

@@ -26,8 +26,17 @@ export default function ProductDetail(){
 
   if (!product) return <div>Loading...</div>
 
+  const imageUrl = product?.imageUrl ?? product?.image_url
+
   return (
-    <div className="bg-white p-6 rounded shadow">
+    <div className="space-y-4 rounded bg-white p-6 shadow">
+      {imageUrl && (
+        <img
+          src={imageUrl}
+          alt={product.name}
+          className="mx-auto w-full max-w-md rounded object-cover"
+        />
+      )}
       <h2 className="text-2xl font-bold">{product.name}</h2>
       <p className="mt-2 text-gray-700">{product.description}</p>
       <div className="mt-4 flex items-center justify-between">
