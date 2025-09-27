@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+
+const DEFAULT_POPUP_DURATION = 2000
 
 export default function Home(){
   const navigate = useNavigate()
   const location = useLocation()
-  const popupMessage = location.state?.popupMessage ?? ''
-  const popupDuration = location.state?.popupDuration ?? 2000
+  const locationState = typeof location.state === 'object' && location.state !== null ? location.state : null
+  const popupMessage = typeof locationState?.popupMessage === 'string' ? locationState.popupMessage : ''
+  const popupDurationRaw = locationState?.popupDuration
+  const popupDuration = Number.isFinite(popupDurationRaw) && popupDurationRaw > 0 ? popupDurationRaw : DEFAULT_POPUP_DURATION
   const [showPopup, setShowPopup] = useState(false)
+  const timeoutRef = useRef()
 
   useEffect(() => {
     if (!popupMessage) {
@@ -16,17 +21,26 @@ export default function Home(){
 
     setShowPopup(true)
 
-    const timeout = setTimeout(() => {
+    timeoutRef.current = window.setTimeout(() => {
       setShowPopup(false)
-      navigate('.', { replace: true, state: {} })
+      navigate('.', { replace: true, state: null })
     }, popupDuration)
 
-    return () => clearTimeout(timeout)
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = undefined
+      }
+    }
   }, [popupMessage, popupDuration, navigate])
+
+  const clearPopupState = () => {
+    navigate('.', { replace: true, state: null })
+  }
 
   const handleClose = () => {
     setShowPopup(false)
-    navigate('.', { replace: true, state: {} })
+    clearPopupState()
   }
 
   return (
@@ -47,6 +61,7 @@ export default function Home(){
                 type="button"
                 onClick={() => {
                   setShowPopup(false)
+                  clearPopupState()
                   navigate('/login')
                 }}
                 className="rounded border border-blue-600 px-4 py-2 text-blue-600 hover:bg-blue-50"
