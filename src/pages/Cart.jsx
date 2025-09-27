@@ -88,7 +88,6 @@ const formatCurrency = value => {
 
 export default function Cart(){
   const [items, setItems] = useState([])
-  const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [removingId, setRemovingId] = useState(null)
   const [updatingId, setUpdatingId] = useState(null)
   const [quantityDrafts, setQuantityDrafts] = useState({})
@@ -184,30 +183,10 @@ export default function Cart(){
     }
   }
 
-  const checkout = async () => {
-    if (!items.length || checkoutLoading) return
+  const checkout = () => {
+    if (!items.length) return
 
-    setCheckoutLoading(true)
-
-    try {
-      await api.post('/cart/checkout', {
-        items: items.map(item => ({
-          cartItemId: item.id,
-          productId: item.productId ?? item.id,
-          quantity: item.quantity,
-        })),
-        total: totalAmount,
-      })
-
-      alert('Orden creada correctamente')
-      setItems([])
-      navigate('/checkout')
-    } catch (err) {
-      console.error('Checkout failed', err)
-      alert('No se pudo completar el checkout. Intenta nuevamente.')
-    } finally {
-      setCheckoutLoading(false)
-    }
+    navigate('/checkout')
   }
 
   const sanitizeQuantity = useCallback(value => {
@@ -368,13 +347,12 @@ export default function Cart(){
         </div>
         <button
           onClick={checkout}
-          disabled={checkoutLoading}
           className={[
             'rounded bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700',
             'disabled:cursor-not-allowed disabled:opacity-60',
           ].join(' ')}
         >
-          {checkoutLoading ? 'Procesando…' : 'Checkout'}
+          Checkout
         </button>
       </div>
     </div>
