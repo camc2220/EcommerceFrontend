@@ -145,7 +145,7 @@ export default function Checkout() {
       });
 
       const basePayload = {
-        billingAddress: "Calle Falsa 123",
+        billingAddress: "Calle #",
         items: invoiceItems,
         invoiceItems,
         invoiceDetails: invoiceItems,
