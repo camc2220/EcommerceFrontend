@@ -224,28 +224,28 @@ export default function Cart(){
     async (item, nextQuantity) => {
       if (!item) return
 
-      const productId = item.productId ?? item.id
-      if (!productId) {
-        console.error('El producto no tiene un identificador válido', item)
+      const cartItemId = item.id
+      if (!cartItemId) {
+        console.error('El artículo del carrito no tiene un identificador válido', item)
         alert('No se pudo actualizar la cantidad. Intenta nuevamente más tarde.')
         return
       }
 
-      const draftValue = nextQuantity ?? quantityDrafts[item.id]
+      const draftValue = nextQuantity ?? quantityDrafts[cartItemId]
       const quantity = sanitizeQuantity(draftValue)
 
-      if (quantity === item.quantity || updatingId === item.id) {
-        setQuantityDrafts(prev => ({ ...prev, [item.id]: quantity }))
+      if (quantity === item.quantity || updatingId === cartItemId) {
+        setQuantityDrafts(prev => ({ ...prev, [cartItemId]: quantity }))
         return
       }
 
-      setUpdatingId(item.id)
+      setUpdatingId(cartItemId)
 
       try {
-        await api.put(`/cart/item/${productId}`, { quantity })
+        await api.patch(`/cart/items/${cartItemId}/quantity`, { quantity })
         setItems(prev =>
           prev.map(it =>
-            it.id === item.id
+            it.id === cartItemId
               ? {
                   ...it,
                   quantity,
@@ -256,11 +256,11 @@ export default function Cart(){
               : it,
           ),
         )
-        setQuantityDrafts(prev => ({ ...prev, [item.id]: quantity }))
+        setQuantityDrafts(prev => ({ ...prev, [cartItemId]: quantity }))
       } catch (err) {
         console.error('No se pudo actualizar la cantidad del carrito', err)
         alert('No se pudo actualizar la cantidad. Intenta nuevamente más tarde.')
-        setQuantityDrafts(prev => ({ ...prev, [item.id]: item.quantity }))
+        setQuantityDrafts(prev => ({ ...prev, [cartItemId]: item.quantity }))
       } finally {
         setUpdatingId(null)
       }
