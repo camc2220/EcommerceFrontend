@@ -12,6 +12,16 @@ export default function Invoices() {
   const resolveUserEmail = invoice => {
     if (!invoice) return "—";
 
+    const coalesceString = (...values) => {
+      for (const value of values) {
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (trimmed) return trimmed;
+        }
+      }
+      return null;
+    };
+
     const userLike =
       invoice.user ||
       invoice.User ||
@@ -21,31 +31,65 @@ export default function Invoices() {
       invoice.Usuario ||
       {};
 
-    const emailCandidate =
-      invoice.userEmail ??
-      invoice.user_email ??
-      invoice.email ??
-      invoice.emailUsuario ??
-      invoice.usuarioEmail ??
-      userLike.email ??
-      userLike.mail ??
-      userLike.emailAddress ??
-      userLike.email_address ??
-      userLike.correo ??
-      userLike.correoElectronico ??
-      userLike.correo_electronico ??
-      null;
+    const nameCandidate = coalesceString(
+      invoice.userName,
+      invoice.username,
+      invoice.fullName,
+      invoice.full_name,
+      invoice.nombreCompleto,
+      invoice.nombre,
+      invoice.name,
+      userLike.userName,
+      userLike.username,
+      userLike.fullName,
+      userLike.full_name,
+      userLike.nombreCompleto,
+      userLike.nombre,
+      userLike.name,
+    );
+
+    if (nameCandidate) return nameCandidate;
+
+    const firstName = coalesceString(
+      invoice.firstName,
+      invoice.first_name,
+      invoice.nombre,
+      userLike.firstName,
+      userLike.first_name,
+      userLike.nombre,
+    );
+    const lastName = coalesceString(
+      invoice.lastName,
+      invoice.last_name,
+      invoice.apellido,
+      userLike.lastName,
+      userLike.last_name,
+      userLike.apellido,
+    );
+    const combinedName = coalesceString(
+      [firstName, lastName].filter(Boolean).join(" ") || null,
+    );
+
+    if (combinedName) return combinedName;
+
+    const emailCandidate = coalesceString(
+      invoice.userEmail,
+      invoice.user_email,
+      invoice.email,
+      invoice.emailUsuario,
+      invoice.usuarioEmail,
+      userLike.email,
+      userLike.mail,
+      userLike.emailAddress,
+      userLike.email_address,
+      userLike.correo,
+      userLike.correoElectronico,
+      userLike.correo_electronico,
+    );
 
     if (emailCandidate) return emailCandidate;
 
-    const identifier =
-      invoice.userId ??
-      invoice.user_id ??
-      userLike.id ??
-      userLike.userId ??
-      null;
-
-    return identifier ? `Usuario ${identifier}` : "Usuario sin email";
+    return "Usuario sin información disponible";
   };
 
   useEffect(() => {
