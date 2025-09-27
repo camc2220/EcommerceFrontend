@@ -124,28 +124,88 @@ export default function Checkout() {
     }
 
     try {
-      const payload = {
-        billingAddress: "Calle Falsa 123",
-        items: cart.map((item) => {
-          const safeUnitPrice = Number.isFinite(item.unitPrice) ? item.unitPrice : 0;
-          const safeQuantity = Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1;
-          const safeLineTotal = Number.isFinite(item.total)
-            ? item.total
-            : safeUnitPrice * safeQuantity;
+      const invoiceItems = cart.map((item) => {
+        const safeUnitPrice = Number.isFinite(item.unitPrice) ? item.unitPrice : 0;
+        const safeQuantity = Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1;
+        const safeLineTotal = Number.isFinite(item.total)
+          ? item.total
+          : safeUnitPrice * safeQuantity;
 
-          return {
-            cartItemId: item.cartItemId ?? item.id,
-            productId: item.productId ?? item.id,
-            description: item.name,
-            quantity: safeQuantity,
-            unitPrice: safeUnitPrice,
-            lineTotal: safeLineTotal,
-          };
-        }),
+        const cartItemId = item.cartItemId ?? item.id;
+        const productId = item.productId ?? item.id;
+
+        return {
+          cartItemId,
+          productId,
+          description: item.name,
+          quantity: safeQuantity,
+          unitPrice: safeUnitPrice,
+          lineTotal: safeLineTotal,
+        };
+      });
+
+      const basePayload = {
+        billingAddress: "Calle Falsa 123",
+        items: invoiceItems,
+        invoiceItems,
+        invoiceDetails: invoiceItems,
+        details: invoiceItems,
+        cartItems: invoiceItems,
         subtotal,
         total,
+        totalAmount: total,
+        grandTotal: total,
       };
-      await api.post("/Invoices", payload);
+
+      const recoverableStatus = new Set([404, 405, 501, 503]);
+
+      const attemptInvoiceCreation = async () => {
+        try {
+          return await api.post("/Invoices", basePayload);
+        } catch (err) {
+          const status = err?.response?.status;
+          if (status === 401) throw err;
+          if (status && !recoverableStatus.has(status)) throw err;
+
+          const fallbackEndpoints = [
+            "/Invoices/create",
+            "/Invoices/Create",
+            "/Invoices/generate",
+            "/Invoices/Generate",
+            "/cart/checkout",
+          ];
+
+          let lastError = err;
+
+          for (const endpoint of fallbackEndpoints) {
+            try {
+              const payload = endpoint === "/cart/checkout"
+                ? {
+                    ...basePayload,
+                    items: invoiceItems,
+                    cartItems: invoiceItems,
+                    subtotal,
+                    total,
+                  }
+                : basePayload;
+
+              // eslint-disable-next-line no-await-in-loop
+              return await api.post(endpoint, payload);
+            } catch (fallbackError) {
+              const fallbackStatus = fallbackError?.response?.status;
+              if (fallbackStatus === 401) throw fallbackError;
+              lastError = fallbackError;
+              if (fallbackStatus && !recoverableStatus.has(fallbackStatus)) {
+                throw fallbackError;
+              }
+            }
+          }
+
+          throw lastError;
+        }
+      };
+
+      await attemptInvoiceCreation();
       alert("Factura generada con éxito ✅");
       navigate("/invoices");
     } catch (err) {
