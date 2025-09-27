@@ -1,9 +1,18 @@
 import { Link } from 'react-router-dom'
-import { useContext } from 'react'
+import { useContext, useMemo } from 'react'
 import { AuthContext } from '../context/AuthContext'
 
 export default function Navbar(){
-  const { user, logout } = useContext(AuthContext)
+  const auth = useContext(AuthContext)
+  const { isAuthenticated, onLogout } = useMemo(() => {
+    const user = auth?.user ?? null
+    const logout = auth?.logout
+
+    return {
+      isAuthenticated: Boolean(user),
+      onLogout: typeof logout === 'function' ? logout : () => {},
+    }
+  }, [auth])
   return (
     <nav className="bg-white shadow">
       <div className="container flex items-center justify-between py-4">
@@ -11,8 +20,8 @@ export default function Navbar(){
         <div className="flex items-center gap-4">
           <Link to="/products" className="hover:underline">Products</Link>
           <Link to="/cart" className="hover:underline">Cart</Link>
-          {user ? (
-            <button onClick={logout} className="px-3 py-1 bg-red-500 text-white rounded">Logout</button>
+          {isAuthenticated ? (
+            <button onClick={onLogout} className="px-3 py-1 bg-red-500 text-white rounded">Logout</button>
           ) : (
             <>
               <Link to="/login" className="px-3 py-1 bg-blue-500 text-white rounded">Login</Link>
