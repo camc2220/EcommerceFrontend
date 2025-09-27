@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { AuthContext } from '../context/AuthContext'
 
 const DEFAULT_POPUP_DURATION = 2000
 
@@ -7,11 +8,15 @@ export default function Home(){
   const navigate = useNavigate()
   const location = useLocation()
   const locationState = typeof location.state === 'object' && location.state !== null ? location.state : null
-  const popupMessage = typeof locationState?.popupMessage === 'string' ? locationState.popupMessage : ''
+  const popupMessageFromState = typeof locationState?.popupMessage === 'string' ? locationState.popupMessage : ''
+  const welcomeMessage = typeof locationState?.welcomeMessage === 'string' ? locationState.welcomeMessage : ''
+  const popupMessage = popupMessageFromState || welcomeMessage
   const popupDurationRaw = locationState?.popupDuration
   const popupDuration = Number.isFinite(popupDurationRaw) && popupDurationRaw > 0 ? popupDurationRaw : DEFAULT_POPUP_DURATION
   const [showPopup, setShowPopup] = useState(false)
   const timeoutRef = useRef()
+  const auth = useContext(AuthContext)
+  const user = auth?.user ?? null
 
   useEffect(() => {
     if (!popupMessage) {
@@ -57,17 +62,19 @@ export default function Home(){
               >
                 Cerrar
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPopup(false)
-                  clearPopupState()
-                  navigate('/login')
-                }}
-                className="rounded border border-blue-600 px-4 py-2 text-blue-600 hover:bg-blue-50"
-              >
-                Ir al inicio de sesión
-              </button>
+              {!user && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPopup(false)
+                    clearPopupState()
+                    navigate('/login')
+                  }}
+                  className="rounded border border-blue-600 px-4 py-2 text-blue-600 hover:bg-blue-50"
+                >
+                  Ir al inicio de sesión
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -100,22 +107,6 @@ export default function Home(){
           <Link to="/products" className="rounded bg-white p-4 shadow hover:shadow-md">Browse products →</Link>
         </div>
       </section>
-
-      {isVisible && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50">
-          <div className="w-80 rounded-lg bg-white p-6 text-center shadow-lg">
-            <h3 className="text-xl font-semibold text-green-700">{welcomeMessage}</h3>
-            <p className="mt-2 text-gray-600">¡Gracias por registrarte! Disfruta de tu experiencia de compra.</p>
-            <button
-              type="button"
-              onClick={() => setIsVisible(false)}
-              className="mt-4 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
