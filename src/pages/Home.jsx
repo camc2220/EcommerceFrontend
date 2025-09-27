@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 export default function Home(){
   const navigate = useNavigate()
   const location = useLocation()
-  const popupMessage = useMemo(() => location.state?.popupMessage ?? '', [location.state])
-  const [showPopup, setShowPopup] = useState(Boolean(popupMessage))
+  const popupMessage = location.state?.popupMessage ?? ''
+  const popupDuration = location.state?.popupDuration ?? 2000
+  const [showPopup, setShowPopup] = useState(false)
 
   useEffect(() => {
     if (!popupMessage) {
@@ -18,10 +19,10 @@ export default function Home(){
     const timeout = setTimeout(() => {
       setShowPopup(false)
       navigate('.', { replace: true, state: {} })
-    }, location.state?.popupDuration ?? 2000)
+    }, popupDuration)
 
     return () => clearTimeout(timeout)
-  }, [popupMessage, navigate, location.state])
+  }, [popupMessage, popupDuration, navigate])
 
   const handleClose = () => {
     setShowPopup(false)
