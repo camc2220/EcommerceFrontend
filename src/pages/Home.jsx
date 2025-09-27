@@ -1,7 +1,48 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+
 export default function Home(){
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [welcomeMessage, setWelcomeMessage] = useState('')
+  const [showPopup, setShowPopup] = useState(false)
+
+  useEffect(() => {
+    if (location.state?.welcomeMessage) {
+      setWelcomeMessage(location.state.welcomeMessage)
+      setShowPopup(true)
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location, navigate])
+
+  useEffect(() => {
+    if (!showPopup) return
+
+    const timeout = setTimeout(() => setShowPopup(false), 5000)
+
+    return () => clearTimeout(timeout)
+  }, [showPopup])
+
   return (
     <div>
+      {showPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <button
+              type="button"
+              aria-label="Cerrar mensaje de bienvenida"
+              onClick={() => setShowPopup(false)}
+              className="absolute right-3 top-3 rounded-full p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+            >
+              <span className="sr-only">Cerrar</span>
+              ×
+            </button>
+            <h2 className="text-2xl font-semibold text-gray-800">¡Registro exitoso!</h2>
+            <p className="mt-3 text-gray-600">{welcomeMessage}</p>
+          </div>
+        </div>
+      )}
+
       <header className="mb-6 rounded bg-white p-6 shadow">
         <h1 className="text-3xl font-bold">Welcome to the store</h1>
         <p className="mt-2 text-gray-600">Shop the best deals</p>
