@@ -169,7 +169,7 @@ export default function Cart(){
     setRemovingId(cartItemId)
 
     try {
-      await api.delete(`/cart/item/${productId}`)
+      await api.delete(`/cart/item/${cartItemId}`)
       setItems(prev => prev.filter(it => it.id !== cartItemId && it.productId !== productId))
       setQuantityDrafts(prev => {
         const next = { ...prev }
