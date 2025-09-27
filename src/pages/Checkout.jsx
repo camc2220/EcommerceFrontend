@@ -147,7 +147,7 @@ export default function Checkout() {
         subtotal,
         total,
       };
-      const res = await axios.post(
+      await axios.post(
         `${import.meta.env.VITE_API_URL}/api/Invoices`,
         payload,
         {
@@ -155,7 +155,7 @@ export default function Checkout() {
         }
       );
       alert("Factura generada con éxito ✅");
-      navigate(`/invoices/${res.data.id}`);
+      navigate("/invoices");
     } catch (err) {
       alert("Error al generar la factura ❌");
     }
