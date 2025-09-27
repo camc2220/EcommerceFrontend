@@ -5,40 +5,101 @@ import { AuthContext } from '../context/AuthContext'
 
 const DEFAULT_POPUP_DURATION = 2000
 
-const featuredProducts = [
+const FALLBACK_FEATURED_PRODUCTS = [
   {
-    id: 'auriculares-pro-x',
+    fallbackId: 'auriculares-pro-x',
     name: 'Auriculares Pro X',
     description: 'Audio envolvente con cancelación activa de ruido.',
     price: 149.99,
-    imageUrl:
+    fallbackImage:
       'https://images.unsplash.com/photo-1511367461989-f85a21fda167?auto=format&fit=crop&w=800&q=80',
   },
   {
-    id: 'smartwatch-fit',
+    fallbackId: 'smartwatch-fit',
     name: 'Smartwatch Fit',
     description: 'Monitorea tu salud con estilo y batería para todo el día.',
     price: 199.99,
-    imageUrl:
+    fallbackImage:
       'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
   },
   {
-    id: 'laptop-ultra',
+    fallbackId: 'laptop-ultra',
     name: 'Laptop Ultra 14"',
     description: 'Ligera, potente y lista para cualquier proyecto.',
     price: 1199,
-    imageUrl:
+    fallbackImage:
       'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',
   },
   {
-    id: 'camara-vlog',
+    fallbackId: 'camara-vlog',
     name: 'Cámara Vlog 4K',
     description: 'Captura videos con estabilización avanzada y pantalla abatible.',
     price: 749,
-    imageUrl:
+    fallbackImage:
       'https://images.unsplash.com/photo-1519183071298-a2962be90b8e?auto=format&fit=crop&w=800&q=80',
   },
 ]
+
+const FEATURED_COUNT = FALLBACK_FEATURED_PRODUCTS.length
+
+const extractProducts = payload => {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.products)) return payload.products
+  if (Array.isArray(payload?.data)) return payload.data
+  return null
+}
+
+const buildFeaturedProducts = products => {
+  if (!Array.isArray(products) || products.length === 0) return []
+
+  const curated = []
+  const usedIds = new Set()
+
+  const lowerCase = value => (typeof value === 'string' ? value.toLowerCase() : '')
+
+  const findMatchingProduct = ({ name }) => {
+    const matchIndex = products.findIndex(product => {
+      if (!product || typeof product !== 'object') return false
+      if (usedIds.has(product.id)) return false
+      return lowerCase(product.name) === lowerCase(name)
+    })
+
+    if (matchIndex === -1) return null
+
+    const [match] = products.splice(matchIndex, 1)
+    usedIds.add(match.id)
+    return match
+  }
+
+  const fallbackCopies = FALLBACK_FEATURED_PRODUCTS.map(fallback => ({ ...fallback }))
+
+  fallbackCopies.forEach(fallback => {
+    const match = findMatchingProduct(fallback)
+
+    if (match) {
+      curated.push({
+        ...match,
+        price: match.price ?? fallback.price,
+        description: match.description ?? fallback.description,
+        imageUrl: match.imageUrl ?? match.image_url ?? fallback.fallbackImage,
+      })
+    }
+  })
+
+  const remainingProducts = products.filter(product => {
+    if (!product || typeof product !== 'object') return false
+    if (usedIds.has(product.id)) return false
+    usedIds.add(product.id)
+    return true
+  })
+
+  for (const product of remainingProducts) {
+    if (curated.length >= FEATURED_COUNT) break
+    curated.push({ ...product, imageUrl: product.imageUrl ?? product.image_url })
+  }
+
+  return curated.slice(0, FEATURED_COUNT)
+}
 
 export default function Home(){
   const navigate = useNavigate()
@@ -55,6 +116,9 @@ export default function Home(){
   const [searchTerm, setSearchTerm] = useState('')
   const [quantities, setQuantities] = useState({})
   const [addingId, setAddingId] = useState(null)
+  const [featuredProducts, setFeaturedProducts] = useState([])
+  const [featuredLoading, setFeaturedLoading] = useState(true)
+  const [featuredError, setFeaturedError] = useState('')
   const user = auth?.user ?? null
 
   const filteredProducts = useMemo(() => {
@@ -66,7 +130,56 @@ export default function Home(){
       const description = product.description?.toLowerCase() ?? ''
       return name.includes(normalizedTerm) || description.includes(normalizedTerm)
     })
-  }, [searchTerm])
+  }, [searchTerm, featuredProducts])
+
+  useEffect(() => {
+    let isSubscribed = true
+
+    const fetchFeaturedProducts = async () => {
+      try {
+        const response = await api.get('/products')
+        const productsPayload = extractProducts(response.data)
+
+        if (!productsPayload) {
+          throw new Error('Formato inesperado de productos. Intenta nuevamente más tarde.')
+        }
+
+        if (!isSubscribed) return
+
+        const curated = buildFeaturedProducts([...productsPayload])
+
+        if (curated.length === 0) {
+          setFeaturedProducts([])
+          setFeaturedError('No hay productos destacados disponibles en este momento.')
+        } else {
+          setFeaturedProducts(curated)
+          setFeaturedError('')
+        }
+      } catch (err) {
+        console.error('No se pudieron cargar los productos destacados', err)
+        if (!isSubscribed) return
+
+        setFeaturedError('No se pudieron cargar los productos destacados. Intenta nuevamente más tarde.')
+        setFeaturedProducts(
+          FALLBACK_FEATURED_PRODUCTS.map(product => ({
+            ...product,
+            id: null,
+            imageUrl: product.fallbackImage,
+          })),
+        )
+      } finally {
+        if (isSubscribed) {
+          setFeaturedLoading(false)
+        }
+      }
+    }
+
+    fetchFeaturedProducts()
+
+    return () => {
+      isSubscribed = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!popupMessage) {
@@ -222,11 +335,33 @@ export default function Home(){
           </div>
         </div>
 
+        {featuredError && (
+          <div className="rounded border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+            {featuredError}
+          </div>
+        )}
+
+        {featuredLoading && (
+          <div className="rounded border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
+            Cargando productos destacados...
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredProducts.map(product => (
-            <article key={product.id} className="flex flex-col overflow-hidden rounded-lg bg-white shadow transition hover:-translate-y-0.5 hover:shadow-lg">
-              {product.imageUrl && (
-                <img src={product.imageUrl} alt={product.name} className="h-48 w-full object-cover" loading="lazy" />
+          {filteredProducts.map(product => {
+            const key = product.id ?? product.fallbackId ?? product.name
+            const isAvailableForCart = Boolean(product?.id)
+            const imageUrl = product.imageUrl ?? product.image_url ?? product.fallbackImage
+            const hasPrice = product.price !== undefined && product.price !== null
+            const priceLabel = hasPrice ? `$${product.price}` : 'Precio no disponible'
+
+            return (
+              <article
+                key={key}
+                className="flex flex-col overflow-hidden rounded-lg bg-white shadow transition hover:-translate-y-0.5 hover:shadow-lg"
+              >
+              {imageUrl && (
+                <img src={imageUrl} alt={product.name} className="h-48 w-full object-cover" loading="lazy" />
               )}
               <div className="flex flex-1 flex-col gap-3 p-5">
                 <div>
@@ -235,10 +370,16 @@ export default function Home(){
                 </div>
                 <div className="mt-auto space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-blue-600">${product.price}</span>
-                    <Link to={`/products/${product.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-700">
-                      Ver producto
-                    </Link>
+                    <span className="text-lg font-bold text-blue-600">{priceLabel}</span>
+                    {isAvailableForCart ? (
+                      <Link to={`/products/${product.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                        Ver producto
+                      </Link>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-400" aria-hidden="true">
+                        Ver producto
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <label className="flex items-center justify-between gap-2 text-sm text-gray-700">
@@ -249,21 +390,23 @@ export default function Home(){
                         className="w-20 rounded border border-gray-300 px-2 py-1"
                         value={getQuantityFor(product.id) ?? 1}
                         onChange={event => handleQuantityChange(product.id, event.target.value)}
+                        disabled={!isAvailableForCart}
                       />
                     </label>
                     <button
                       type="button"
                       onClick={() => addToCart(product.id)}
-                      disabled={addingId === product.id}
+                      disabled={!isAvailableForCart || addingId === product.id}
                       className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {addingId === product.id ? 'Agregando…' : 'Agregar al carrito'}
+                      {!isAvailableForCart ? 'No disponible' : addingId === product.id ? 'Agregando…' : 'Agregar al carrito'}
                     </button>
                   </div>
                 </div>
               </div>
-            </article>
-          ))}
+              </article>
+            )
+          })}
         </div>
 
         {filteredProducts.length === 0 && (
