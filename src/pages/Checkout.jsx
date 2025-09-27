@@ -52,7 +52,19 @@ const normalizeCartItems = (payload) => {
     const total =
       Number.isFinite(parsedTotal) && parsedTotal >= 0 ? parsedTotal : unitPrice * quantity;
 
-    const rawId = raw?.id ?? raw?.cartItemId ?? raw?.cart_item_id ?? product?.id;
+    const rawProductId =
+      raw?.productId ??
+      raw?.product_id ??
+      product?.id ??
+      product?.productId ??
+      product?.product_id;
+    const productId =
+      typeof rawProductId === "string" || typeof rawProductId === "number"
+        ? rawProductId
+        : null;
+
+    const rawCartItemId = raw?.cartItemId ?? raw?.cart_item_id;
+    const rawId = raw?.id ?? rawCartItemId ?? productId;
     const id = typeof rawId === "string" || typeof rawId === "number" ? rawId : `${index}`;
 
     return {
@@ -61,6 +73,11 @@ const normalizeCartItems = (payload) => {
       quantity,
       unitPrice,
       total,
+      productId,
+      cartItemId:
+        typeof rawCartItemId === "string" || typeof rawCartItemId === "number"
+          ? rawCartItemId
+          : undefined,
     };
   });
 };
@@ -92,20 +109,47 @@ export default function Checkout() {
   }, []);
 
   const subtotal = useMemo(
-    () => cart.reduce((sum, item) => sum + (Number.isFinite(item.total) ? item.total : 0), 0),
+    () =>
+      cart.reduce(
+        (sum, item) => sum + (Number.isFinite(item.total) ? item.total : item.unitPrice * item.quantity),
+        0
+      ),
     [cart]
   );
-  const tax = subtotal * 0.18; // 18% ITBIS
-  const total = subtotal + tax;
+  const total = subtotal;
 
   const handleCheckout = async () => {
+    if (!cart.length) {
+      alert("No hay artículos en el carrito para facturar.");
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
+      const payload = {
+        billingAddress: "Calle Falsa 123",
+        items: cart.map((item) => {
+          const safeUnitPrice = Number.isFinite(item.unitPrice) ? item.unitPrice : 0;
+          const safeQuantity = Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1;
+          const safeLineTotal = Number.isFinite(item.total)
+            ? item.total
+            : safeUnitPrice * safeQuantity;
+
+          return {
+            cartItemId: item.cartItemId ?? item.id,
+            productId: item.productId ?? item.id,
+            description: item.name,
+            quantity: safeQuantity,
+            unitPrice: safeUnitPrice,
+            lineTotal: safeLineTotal,
+          };
+        }),
+        subtotal,
+        total,
+      };
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/Invoices`,
-        {
-          billingAddress: "Calle Falsa 123",
-        },
+        payload,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -124,38 +168,48 @@ export default function Checkout() {
     <div className="bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4">Resumen de la Orden</h2>
 
-      <table className="w-full text-left mb-6">
-        <thead>
-          <tr className="border-b">
-            <th className="p-2">Producto</th>
-            <th className="p-2">Cantidad</th>
-            <th className="p-2">Precio</th>
-            <th className="p-2">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {cart.map((item) => (
-            <tr key={item.id} className="border-b">
-              <td className="p-2">{item.name}</td>
-              <td className="p-2">{item.quantity}</td>
-              <td className="p-2">${item.unitPrice.toFixed(2)}</td>
-              <td className="p-2">
-                ${item.total.toFixed(2)}
-              </td>
+      {cart.length ? (
+        <table className="w-full text-left mb-6">
+          <thead>
+            <tr className="border-b">
+              <th className="p-2">Producto</th>
+              <th className="p-2">Cantidad</th>
+              <th className="p-2">Precio</th>
+              <th className="p-2">Subtotal</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {cart.map((item) => {
+              const safeUnitPrice = Number.isFinite(item.unitPrice) ? item.unitPrice : 0;
+              const safeQuantity = Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1;
+              const safeLineTotal = Number.isFinite(item.total)
+                ? item.total
+                : safeUnitPrice * safeQuantity;
+
+              return (
+                <tr key={item.id} className="border-b">
+                  <td className="p-2">{item.name}</td>
+                  <td className="p-2">{safeQuantity}</td>
+                  <td className="p-2">${safeUnitPrice.toFixed(2)}</td>
+                  <td className="p-2">${safeLineTotal.toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <p className="mb-6 text-center text-gray-500">No hay productos en el carrito.</p>
+      )}
 
       <div className="text-right space-y-2">
         <p>Subtotal: <strong>${subtotal.toFixed(2)}</strong></p>
-        <p>ITBIS (18%): <strong>${tax.toFixed(2)}</strong></p>
         <p className="text-xl">Total: <strong>${total.toFixed(2)}</strong></p>
       </div>
 
       <button
         onClick={handleCheckout}
-        className="mt-6 w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition"
+        disabled={!cart.length}
+        className="mt-6 w-full rounded-lg bg-blue-600 p-3 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         Generar Factura
       </button>
