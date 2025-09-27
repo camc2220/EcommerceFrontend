@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import api from '../api/api'
 import { AuthContext } from '../context/AuthContext'
 
 const DEFAULT_POPUP_DURATION = 2000
@@ -52,6 +53,8 @@ export default function Home(){
   const timeoutRef = useRef()
   const auth = useContext(AuthContext)
   const [searchTerm, setSearchTerm] = useState('')
+  const [quantities, setQuantities] = useState({})
+  const [addingId, setAddingId] = useState(null)
   const user = auth?.user ?? null
 
   const filteredProducts = useMemo(() => {
@@ -93,6 +96,54 @@ export default function Home(){
   const handleClose = () => {
     setShowPopup(false)
     clearPopupState()
+  }
+
+  const getQuantityFor = productId => {
+    const value = quantities[productId]
+    if (value === '') return ''
+    if (value === undefined || value === null) return 1
+
+    const parsed = Number.parseInt(value, 10)
+    if (!Number.isFinite(parsed) || parsed <= 0) return 1
+    return parsed
+  }
+
+  const handleQuantityChange = (productId, value) => {
+    if (value === '') {
+      setQuantities(prev => ({ ...prev, [productId]: '' }))
+      return
+    }
+
+    const parsed = Number.parseInt(value, 10)
+    const safeValue = Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+
+    setQuantities(prev => ({ ...prev, [productId]: safeValue }))
+  }
+
+  const addToCart = async productId => {
+    if (!productId || addingId) return
+
+    const quantityRaw = quantities[productId]
+    const parsed = Number.parseInt(quantityRaw, 10)
+    const quantity = Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+
+    setAddingId(productId)
+
+    try {
+      await api.post('/cart/add', { productId, quantity })
+      alert('Producto agregado al carrito')
+      setQuantities(prev => ({ ...prev, [productId]: 1 }))
+    } catch (err) {
+      if (err.response?.status === 401) {
+        alert('Debes iniciar sesión para agregar productos al carrito')
+        navigate('/login')
+      } else {
+        console.error('No se pudo agregar el producto al carrito', err)
+        alert('No se pudo agregar el producto. Intenta nuevamente más tarde.')
+      }
+    } finally {
+      setAddingId(null)
+    }
   }
 
   return (
@@ -182,14 +233,33 @@ export default function Home(){
                   <h3 className="text-lg font-semibold text-gray-900">{product.name}</h3>
                   <p className="mt-1 text-sm text-gray-600">{product.description}</p>
                 </div>
-                <div className="mt-auto flex items-center justify-between">
-                  <span className="text-lg font-bold text-blue-600">${product.price}</span>
-                  <Link
-                    to={`/products/${product.id}`}
-                    className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700"
-                  >
-                    Ver detalles
-                  </Link>
+                <div className="mt-auto space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-blue-600">${product.price}</span>
+                    <Link to={`/products/${product.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                      Ver producto
+                    </Link>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <label className="flex items-center justify-between gap-2 text-sm text-gray-700">
+                      Cantidad:
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-20 rounded border border-gray-300 px-2 py-1"
+                        value={getQuantityFor(product.id) ?? 1}
+                        onChange={event => handleQuantityChange(product.id, event.target.value)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => addToCart(product.id)}
+                      disabled={addingId === product.id}
+                      className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {addingId === product.id ? 'Agregando…' : 'Agregar al carrito'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </article>
