@@ -8,6 +8,8 @@ import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Invoices from './pages/Invoices'
+import InvoiceDetail from './pages/InvoiceDetail'
 
 function AppLayout(){
   const location = useLocation()
@@ -37,6 +39,10 @@ export default function App(){
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* nuevas rutas */}
+        <Route path="/invoices" element={<Invoices />} />
+        <Route path="/invoices/:id" element={<InvoiceDetail />} />
       </Route>
     </Routes>
   )
