@@ -45,21 +45,27 @@ const normalizeCartItems = list => {
       product?.photo_url ||
       ''
 
-    const productId =
-      raw?.productId ??
-      raw?.product_id ??
-      product?.id ??
-      raw?.id
+    const rawProductId = raw?.productId ?? raw?.product_id ?? product?.id
+    const inferredProductId =
+      typeof rawProductId === 'string'
+        ? rawProductId
+        : undefined
 
-    const id =
-      raw?.id ??
+    const rawId = raw?.id
+    const cartItemId =
       raw?.cartItemId ??
       raw?.cart_item_id ??
-      productId ??
-      `${index}`
+      (rawId && rawId !== inferredProductId ? rawId : undefined)
+
+    const productId =
+      inferredProductId ??
+      (typeof rawId === 'string' && rawId !== cartItemId ? rawId : undefined)
+
+    const id = cartItemId ?? productId ?? rawId ?? `${index}`
 
     return {
       id,
+      cartItemId: cartItemId ?? (rawId && rawId !== productId ? rawId : undefined),
       productName,
       quantity: safeQuantity,
       unitPrice: safeUnitPrice,
@@ -151,21 +157,23 @@ export default function Cart(){
   const removeItem = async item => {
     if (!item) return
 
-    const productId = item.productId ?? item.id
+    const productId = item.productId
     if (!productId) {
       console.error('El producto no tiene un identificador válido', item)
       alert('No se pudo remover el artículo. Intenta nuevamente más tarde.')
       return
     }
 
-    setRemovingId(item.id)
+    const cartItemId = item.cartItemId ?? item.id ?? productId
+
+    setRemovingId(cartItemId)
 
     try {
       await api.delete(`/cart/item/${productId}`)
-      setItems(prev => prev.filter(it => it.id !== item.id))
+      setItems(prev => prev.filter(it => it.id !== cartItemId && it.productId !== productId))
       setQuantityDrafts(prev => {
         const next = { ...prev }
-        delete next[item.id]
+        delete next[cartItemId]
         return next
       })
     } catch (err) {
@@ -224,7 +232,7 @@ export default function Cart(){
     async (item, nextQuantity) => {
       if (!item) return
 
-      const cartItemId = item.id
+      const cartItemId = item.cartItemId ?? item.id
       if (!cartItemId) {
         console.error('El artículo del carrito no tiene un identificador válido', item)
         alert('No se pudo actualizar la cantidad. Intenta nuevamente más tarde.')
@@ -245,7 +253,7 @@ export default function Cart(){
         await api.patch(`/cart/items/${cartItemId}/quantity`, { quantity })
         setItems(prev =>
           prev.map(it =>
-            it.id === cartItemId
+            it.id === cartItemId || it.cartItemId === cartItemId
               ? {
                   ...it,
                   quantity,
@@ -320,7 +328,12 @@ export default function Cart(){
                         setQuantityDrafts(prev => ({ ...prev, [it.id]: it.quantity }))
                       }
                     }}
-                    disabled={updatingId === it.id || removingId === it.id}
+                    disabled={
+                      updatingId === it.id ||
+                      updatingId === it.cartItemId ||
+                      removingId === it.id ||
+                      removingId === it.cartItemId
+                    }
                   />
                 </div>
                 <div className="text-sm text-gray-500">Precio unitario: {formatCurrency(it.unitPrice)}</div>
@@ -330,7 +343,7 @@ export default function Cart(){
               <div className="text-lg font-semibold">{formatCurrency(it.totalPrice)}</div>
               <button
                 onClick={() => removeItem(it)}
-                disabled={removingId === it.id}
+                disabled={removingId === it.id || removingId === it.cartItemId}
                 className={[
                   'rounded border border-red-500 px-3 py-1 text-sm font-medium text-red-600 transition hover:bg-red-50',
                   'disabled:cursor-not-allowed disabled:opacity-50',
