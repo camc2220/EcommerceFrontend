@@ -20,6 +20,9 @@ export default function Navbar(){
         <div className="flex items-center gap-4">
           <Link to="/products" className="hover:underline">Products</Link>
           <Link to="/cart" className="hover:underline">Cart</Link>
+          {isAuthenticated && (
+            <Link to="/invoices" className="hover:underline">Invoices</Link>
+          )}
           {isAuthenticated ? (
             <button onClick={onLogout} className="px-3 py-1 bg-red-500 text-white rounded">Logout</button>
           ) : (
