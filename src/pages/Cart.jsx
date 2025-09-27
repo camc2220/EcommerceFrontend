@@ -126,27 +126,18 @@ export default function Cart(){
 
   const removeItem = async item => {
     if (!item) return
-    setRemovingId(item.id)
 
-    const attemptRemoval = async () => {
-      try {
-        await api.post('/cart/remove', {
-          cartItemId: item.id,
-          productId: item.productId ?? item.id,
-          quantity: item.quantity,
-        })
-      } catch (err) {
-        const status = err?.response?.status
-        if (status && ![404, 405].includes(status)) {
-          throw err
-        }
-
-        await api.delete(`/cart/${item.id}`)
-      }
+    const productId = item.productId ?? item.id
+    if (!productId) {
+      console.error('El producto no tiene un identificador válido', item)
+      alert('No se pudo remover el artículo. Intenta nuevamente más tarde.')
+      return
     }
 
+    setRemovingId(item.id)
+
     try {
-      await attemptRemoval()
+      await api.delete(`/cart/item/${productId}`)
       setItems(prev => prev.filter(it => it.id !== item.id))
     } catch (err) {
       console.error('No se pudo remover el artículo del carrito', err)
