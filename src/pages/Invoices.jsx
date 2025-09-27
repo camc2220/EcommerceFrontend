@@ -9,6 +9,45 @@ export default function Invoices() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const resolveUserEmail = invoice => {
+    if (!invoice) return "—";
+
+    const userLike =
+      invoice.user ||
+      invoice.User ||
+      invoice.customer ||
+      invoice.Customer ||
+      invoice.usuario ||
+      invoice.Usuario ||
+      {};
+
+    const emailCandidate =
+      invoice.userEmail ??
+      invoice.user_email ??
+      invoice.email ??
+      invoice.emailUsuario ??
+      invoice.usuarioEmail ??
+      userLike.email ??
+      userLike.mail ??
+      userLike.emailAddress ??
+      userLike.email_address ??
+      userLike.correo ??
+      userLike.correoElectronico ??
+      userLike.correo_electronico ??
+      null;
+
+    if (emailCandidate) return emailCandidate;
+
+    const identifier =
+      invoice.userId ??
+      invoice.user_id ??
+      userLike.id ??
+      userLike.userId ??
+      null;
+
+    return identifier ? `Usuario ${identifier}` : "Usuario sin email";
+  };
+
   useEffect(() => {
     const fetchInvoices = async () => {
       try {
@@ -49,10 +88,10 @@ export default function Invoices() {
             </tr>
           </thead>
           <tbody>
-            {invoices.map((inv, i) => (
+            {invoices.map(inv => (
               <tr key={inv.id} className="border-b">
                 <td className="px-4 py-2">{inv.invoiceNumber}</td>
-                <td className="px-4 py-2">{inv.userId}</td>
+                <td className="px-4 py-2">{resolveUserEmail(inv)}</td>
                 <td className="px-4 py-2">${inv.total}</td>
                 <td className="px-4 py-2">{inv.status}</td>
                 <td className="px-4 py-2">
