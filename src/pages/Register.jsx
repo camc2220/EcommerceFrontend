@@ -6,22 +6,24 @@ export default function Register(){
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
+  const [error, setError] = useState('')
   const { register } = useContext(AuthContext)
   const navigate = useNavigate()
-  const [status, setStatus] = useState({ type: null, message: '' })
 
   const handle = async (e) => {
     e.preventDefault()
-    setStatus({ type: null, message: '' })
+    setError('')
+
     try {
+      const trimmedName = fullName.trim()
       await register(email, password, fullName)
       const welcomeMessage = `¡Bienvenido, ${fullName}!`
       setFullName('')
       setEmail('')
       setPassword('')
-      navigate('/', { state: { welcomeMessage } })
+      navigate('/', { state: { welcomeMessage: trimmedName ? `¡Bienvenido, ${trimmedName}!` : '¡Registro exitoso!' } })
     } catch (err) {
-      setStatus({ type: 'error', message: 'No se pudo completar el registro. Intenta nuevamente.' })
+      setError('No se pudo completar el registro. Intenta nuevamente.')
     }
   }
 
@@ -31,8 +33,8 @@ export default function Register(){
         <input className="p-2 border rounded" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" />
         <input className="p-2 border rounded" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" required />
         <input className="p-2 border rounded" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" required />
-        {status.type === 'error' && (
-          <p className="text-sm text-red-600">{status.message}</p>
+        {error && (
+          <p className="text-sm text-red-600">{error}</p>
         )}
         <button className="bg-green-600 text-white px-4 py-2 rounded">Register</button>
       </form>
