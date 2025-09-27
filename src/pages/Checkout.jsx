@@ -1,6 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+
+const normalizeCartItems = (payload) => {
+  let list = [];
+
+  if (Array.isArray(payload)) {
+    list = payload;
+  } else if (payload && Array.isArray(payload.data)) {
+    list = payload.data;
+  } else if (payload && Array.isArray(payload.items)) {
+    list = payload.items;
+  } else if (payload && Array.isArray(payload.cartItems)) {
+    list = payload.cartItems;
+  }
+
+  return list.map((raw, index) => {
+    const product =
+      raw?.product ||
+      raw?.Product ||
+      raw?.productDto ||
+      raw?.item ||
+      raw?.productDetails ||
+      {};
+
+    const name =
+      raw?.productName ||
+      product?.name ||
+      product?.title ||
+      product?.productName ||
+      product?.nombre ||
+      "Producto";
+
+    const quantityRaw = raw?.quantity ?? raw?.qty ?? raw?.amount ?? raw?.units;
+    const parsedQuantity = Number.parseInt(quantityRaw, 10);
+    const quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
+
+    const priceSource =
+      raw?.price ??
+      raw?.unitPrice ??
+      raw?.unit_price ??
+      raw?.productPrice ??
+      product?.price ??
+      product?.unitPrice ??
+      product?.unit_price;
+    const parsedPrice = Number(priceSource);
+    const unitPrice = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : 0;
+
+    const totalSource = raw?.total ?? raw?.totalPrice ?? raw?.total_price;
+    const parsedTotal = Number(totalSource);
+    const total =
+      Number.isFinite(parsedTotal) && parsedTotal >= 0 ? parsedTotal : unitPrice * quantity;
+
+    const rawId = raw?.id ?? raw?.cartItemId ?? raw?.cart_item_id ?? product?.id;
+    const id = typeof rawId === "string" || typeof rawId === "number" ? rawId : `${index}`;
+
+    return {
+      id,
+      name,
+      quantity,
+      unitPrice,
+      total,
+    };
+  });
+};
 
 export default function Checkout() {
   const [cart, setCart] = useState([]);
@@ -18,7 +81,7 @@ export default function Checkout() {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        setCart(res.data);
+        setCart(normalizeCartItems(res.data));
       } catch (err) {
         setError("No se pudo cargar el carrito");
       } finally {
@@ -28,7 +91,10 @@ export default function Checkout() {
     fetchCart();
   }, []);
 
-  const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = useMemo(
+    () => cart.reduce((sum, item) => sum + (Number.isFinite(item.total) ? item.total : 0), 0),
+    [cart]
+  );
   const tax = subtotal * 0.18; // 18% ITBIS
   const total = subtotal + tax;
 
@@ -70,11 +136,11 @@ export default function Checkout() {
         <tbody>
           {cart.map((item) => (
             <tr key={item.id} className="border-b">
-              <td className="p-2">{item.product.name}</td>
+              <td className="p-2">{item.name}</td>
               <td className="p-2">{item.quantity}</td>
-              <td className="p-2">${item.product.price.toFixed(2)}</td>
+              <td className="p-2">${item.unitPrice.toFixed(2)}</td>
               <td className="p-2">
-                ${(item.product.price * item.quantity).toFixed(2)}
+                ${item.total.toFixed(2)}
               </td>
             </tr>
           ))}
