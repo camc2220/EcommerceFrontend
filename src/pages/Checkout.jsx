@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import api from "../api/api";
 
 const normalizeCartItems = (payload) => {
   let list = [];
@@ -91,22 +91,21 @@ export default function Checkout() {
   useEffect(() => {
     const fetchCart = async () => {
       try {
-        const token = localStorage.getItem("token"); // token JWT guardado tras login
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/Cart`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const res = await api.get("/cart");
         setCart(normalizeCartItems(res.data));
       } catch (err) {
+        if (err?.response?.status === 401) {
+          navigate("/login");
+          return;
+        }
+        console.error("No se pudo cargar el carrito", err);
         setError("No se pudo cargar el carrito");
       } finally {
         setLoading(false);
       }
     };
     fetchCart();
-  }, []);
+  }, [navigate]);
 
   const subtotal = useMemo(
     () =>
@@ -125,7 +124,6 @@ export default function Checkout() {
     }
 
     try {
-      const token = localStorage.getItem("token");
       const payload = {
         billingAddress: "Calle Falsa 123",
         items: cart.map((item) => {
@@ -147,16 +145,15 @@ export default function Checkout() {
         subtotal,
         total,
       };
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/Invoices`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      await api.post("/Invoices", payload);
       alert("Factura generada con éxito ✅");
       navigate("/invoices");
     } catch (err) {
+      if (err?.response?.status === 401) {
+        navigate("/login");
+        return;
+      }
+      console.error("Error al generar la factura", err);
       alert("Error al generar la factura ❌");
     }
   };
