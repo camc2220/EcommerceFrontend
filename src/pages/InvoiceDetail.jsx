@@ -17,9 +17,15 @@ const normalizeInvoiceItems = list => {
     const productName =
       rawItem?.productName ||
       rawItem?.product_name ||
+      rawItem?.nombreProducto ||
+      rawItem?.productTitle ||
+      rawItem?.product_title ||
       product?.name ||
       product?.title ||
       product?.productName ||
+      product?.product_name ||
+      product?.nameProduct ||
+      product?.nombreProducto ||
       product?.nombre ||
       `Producto ${rawItem?.productId ?? rawItem?.product_id ?? index + 1}`;
 
