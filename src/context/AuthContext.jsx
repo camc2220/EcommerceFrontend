@@ -1,7 +1,16 @@
-import { createContext, useState, useEffect } from 'react'
+import { createContext, useState, useEffect, useMemo, useCallback } from 'react'
 import api from '../api/api'
 
-export const AuthContext = createContext()
+const missingProviderError = (methodName) => () => {
+  throw new Error(`AuthProvider is missing. Tried to call ${methodName} without a provider.`)
+}
+
+export const AuthContext = createContext({
+  user: null,
+  login: missingProviderError('login'),
+  logout: missingProviderError('logout'),
+  register: missingProviderError('register'),
+})
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -11,28 +20,26 @@ export const AuthProvider = ({ children }) => {
     if (token) setUser({ token })
   }, [])
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const res = await api.post('/Auth/login', { email, password })
     localStorage.setItem('token', res.data.token)
     setUser({ token: res.data.token })
     return res.data
-  }
+  }, [])
 
-  const register = async (email, password, fullName) => {
+  const register = useCallback(async (email, password, fullName) => {
     const res = await api.post('/Auth/register', { email, password, fullName })
     localStorage.setItem('token', res.data.token)
     setUser({ token: res.data.token })
     return res.data
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token')
     setUser(null)
-  }
+  }, [])
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout, register }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const value = useMemo(() => ({ user, login, logout, register }), [user, login, logout, register])
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
