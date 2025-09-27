@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/api'
 
@@ -202,13 +202,15 @@ export default function Cart(){
     }
   }
 
-  const sanitizeQuantity = value => {
+  const sanitizeQuantity = useCallback(value => {
     if (value === '') return 1
     const parsed = Number.parseInt(value, 10)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
-  }
+  }, [])
 
-  const handleQuantityDraftChange = (id, rawValue) => {
+  const handleQuantityDraftChange = (item, rawValue) => {
+    const id = item.id
+
     if (rawValue === '') {
       setQuantityDrafts(prev => ({ ...prev, [id]: '' }))
       return
@@ -218,50 +220,69 @@ export default function Cart(){
     setQuantityDrafts(prev => ({ ...prev, [id]: safeValue }))
   }
 
-  const updateQuantity = async item => {
-    if (!item) return
+  const updateQuantity = useCallback(
+    async (item, nextQuantity) => {
+      if (!item) return
 
-    const productId = item.productId ?? item.id
-    if (!productId) {
-      console.error('El producto no tiene un identificador válido', item)
-      alert('No se pudo actualizar la cantidad. Intenta nuevamente más tarde.')
-      return
+      const productId = item.productId ?? item.id
+      if (!productId) {
+        console.error('El producto no tiene un identificador válido', item)
+        alert('No se pudo actualizar la cantidad. Intenta nuevamente más tarde.')
+        return
+      }
+
+      const draftValue = nextQuantity ?? quantityDrafts[item.id]
+      const quantity = sanitizeQuantity(draftValue)
+
+      if (quantity === item.quantity || updatingId === item.id) {
+        setQuantityDrafts(prev => ({ ...prev, [item.id]: quantity }))
+        return
+      }
+
+      setUpdatingId(item.id)
+
+      try {
+        await api.put(`/cart/item/${productId}`, { quantity })
+        setItems(prev =>
+          prev.map(it =>
+            it.id === item.id
+              ? {
+                  ...it,
+                  quantity,
+                  totalPrice: Number.isFinite(it.unitPrice)
+                    ? it.unitPrice * quantity
+                    : quantity * (it.totalPrice / (item.quantity || 1) || 0),
+                }
+              : it,
+          ),
+        )
+        setQuantityDrafts(prev => ({ ...prev, [item.id]: quantity }))
+      } catch (err) {
+        console.error('No se pudo actualizar la cantidad del carrito', err)
+        alert('No se pudo actualizar la cantidad. Intenta nuevamente más tarde.')
+        setQuantityDrafts(prev => ({ ...prev, [item.id]: item.quantity }))
+      } finally {
+        setUpdatingId(null)
+      }
+    },
+    [quantityDrafts, sanitizeQuantity, updatingId],
+  )
+
+  useEffect(() => {
+    if (!items.length || updatingId) return
+
+    const pendingItem = items.find(it => {
+      const draft = quantityDrafts[it.id]
+      if (draft === '' || draft === undefined || draft === null) return false
+      const safeDraft = sanitizeQuantity(draft)
+      return safeDraft !== it.quantity
+    })
+
+    if (pendingItem) {
+      const draft = quantityDrafts[pendingItem.id]
+      updateQuantity(pendingItem, draft)
     }
-
-    const draftValue = quantityDrafts[item.id]
-    const quantity = sanitizeQuantity(draftValue)
-
-    if (quantity === item.quantity || updatingId === item.id) {
-      setQuantityDrafts(prev => ({ ...prev, [item.id]: quantity }))
-      return
-    }
-
-    setUpdatingId(item.id)
-
-    try {
-      await api.put(`/cart/item/${productId}`, { quantity })
-      setItems(prev =>
-        prev.map(it =>
-          it.id === item.id
-            ? {
-                ...it,
-                quantity,
-                totalPrice: Number.isFinite(it.unitPrice)
-                  ? it.unitPrice * quantity
-                  : quantity * (it.totalPrice / (item.quantity || 1) || 0),
-              }
-            : it,
-        ),
-      )
-      setQuantityDrafts(prev => ({ ...prev, [item.id]: quantity }))
-    } catch (err) {
-      console.error('No se pudo actualizar la cantidad del carrito', err)
-      alert('No se pudo actualizar la cantidad. Intenta nuevamente más tarde.')
-      setQuantityDrafts(prev => ({ ...prev, [item.id]: item.quantity }))
-    } finally {
-      setUpdatingId(null)
-    }
-  }
+  }, [items, quantityDrafts, updatingId, sanitizeQuantity, updateQuantity])
 
   if (!items.length) return <div>No items in cart.</div>
 
@@ -292,18 +313,15 @@ export default function Cart(){
                     min="1"
                     className="w-20 rounded border border-gray-300 px-2 py-1 text-sm"
                     value={quantityDrafts[it.id] ?? it.quantity ?? 1}
-                    onChange={event => handleQuantityDraftChange(it.id, event.target.value)}
-                    onBlur={() => updateQuantity(it)}
+                    onChange={event => handleQuantityDraftChange(it, event.target.value)}
+                    onBlur={() => {
+                      const draftValue = quantityDrafts[it.id]
+                      if (draftValue === '' || draftValue === undefined || draftValue === null) {
+                        setQuantityDrafts(prev => ({ ...prev, [it.id]: it.quantity }))
+                      }
+                    }}
                     disabled={updatingId === it.id || removingId === it.id}
                   />
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(it)}
-                    disabled={updatingId === it.id || removingId === it.id}
-                    className="rounded bg-blue-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {updatingId === it.id ? 'Actualizando…' : 'Actualizar'}
-                  </button>
                 </div>
                 <div className="text-sm text-gray-500">Precio unitario: {formatCurrency(it.unitPrice)}</div>
               </div>
