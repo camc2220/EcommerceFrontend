@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../api/api'
 
 const normalizeCartItems = list => {
@@ -45,12 +45,17 @@ const normalizeCartItems = list => {
       product?.photo_url ||
       ''
 
+    const productId =
+      raw?.productId ??
+      raw?.product_id ??
+      product?.id ??
+      raw?.id
+
     const id =
       raw?.id ??
       raw?.cartItemId ??
       raw?.cart_item_id ??
-      raw?.productId ??
-      product?.id ??
+      productId ??
       `${index}`
 
     return {
@@ -60,6 +65,7 @@ const normalizeCartItems = list => {
       unitPrice: safeUnitPrice,
       totalPrice: computedTotal,
       imageUrl,
+      productId,
     }
   })
 }
@@ -76,6 +82,8 @@ const formatCurrency = value => {
 
 export default function Cart(){
   const [items, setItems] = useState([])
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [removingId, setRemovingId] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -100,13 +108,77 @@ export default function Cart(){
       })
   }, [])
 
-  const checkout = async () => {
+  const totalQuantity = useMemo(
+    () => items.reduce((sum, item) => sum + (item.quantity ?? 0), 0),
+    [items],
+  )
+
+  const totalAmount = useMemo(
+    () =>
+      items.reduce((sum, item) => {
+        const lineTotal = Number.isFinite(item.totalPrice)
+          ? item.totalPrice
+          : item.unitPrice * item.quantity
+        return sum + (Number.isFinite(lineTotal) ? lineTotal : 0)
+      }, 0),
+    [items],
+  )
+
+  const removeItem = async item => {
+    if (!item) return
+    setRemovingId(item.id)
+
+    const attemptRemoval = async () => {
+      try {
+        await api.post('/cart/remove', {
+          cartItemId: item.id,
+          productId: item.productId ?? item.id,
+          quantity: item.quantity,
+        })
+      } catch (err) {
+        const status = err?.response?.status
+        if (status && ![404, 405].includes(status)) {
+          throw err
+        }
+
+        await api.delete(`/cart/${item.id}`)
+      }
+    }
+
     try {
-      await api.post('/cart/checkout')
-      alert('Order created')
-      navigate('/invoices' || '/')
+      await attemptRemoval()
+      setItems(prev => prev.filter(it => it.id !== item.id))
     } catch (err) {
-      alert('Checkout failed')
+      console.error('No se pudo remover el artículo del carrito', err)
+      alert('No se pudo remover el artículo. Intenta nuevamente más tarde.')
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
+  const checkout = async () => {
+    if (!items.length || checkoutLoading) return
+
+    setCheckoutLoading(true)
+
+    try {
+      await api.post('/cart/checkout', {
+        items: items.map(item => ({
+          cartItemId: item.id,
+          productId: item.productId ?? item.id,
+          quantity: item.quantity,
+        })),
+        total: totalAmount,
+      })
+
+      alert('Orden creada correctamente')
+      setItems([])
+      navigate('/checkout')
+    } catch (err) {
+      console.error('Checkout failed', err)
+      alert('No se pudo completar el checkout. Intenta nuevamente.')
+    } finally {
+      setCheckoutLoading(false)
     }
   }
 
@@ -136,12 +208,43 @@ export default function Cart(){
                 <div className="text-sm text-gray-500">Precio unitario: {formatCurrency(it.unitPrice)}</div>
               </div>
             </div>
-            <div className="text-lg font-semibold">{formatCurrency(it.totalPrice)}</div>
+            <div className="flex items-center gap-4">
+              <div className="text-lg font-semibold">{formatCurrency(it.totalPrice)}</div>
+              <button
+                onClick={() => removeItem(it)}
+                disabled={removingId === it.id}
+                className={[
+                  'rounded border border-red-500 px-3 py-1 text-sm font-medium text-red-600 transition hover:bg-red-50',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                ].join(' ')}
+              >
+                {removingId === it.id ? 'Removiendo…' : 'Remover'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
-      <div className="mt-6">
-        <button onClick={checkout} className="px-4 py-2 bg-blue-600 text-white rounded">Checkout</button>
+      <div className="mt-6 space-y-4">
+        <div className="rounded bg-gray-100 p-4">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>Total de artículos</span>
+            <span>{totalQuantity}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-lg font-semibold">
+            <span>Total</span>
+            <span>{formatCurrency(totalAmount)}</span>
+          </div>
+        </div>
+        <button
+          onClick={checkout}
+          disabled={checkoutLoading}
+          className={[
+            'rounded bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700',
+            'disabled:cursor-not-allowed disabled:opacity-60',
+          ].join(' ')}
+        >
+          {checkoutLoading ? 'Procesando…' : 'Checkout'}
+        </button>
       </div>
     </div>
   )
